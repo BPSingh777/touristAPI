@@ -1,7 +1,14 @@
 {
-    "functions": {
-      "api/main": {
-        "handler": "api/main.app"
+    "builds": [
+      {
+        "src": "main.py",
+        "use": "@vercel/python"
       }
-    }
-  }
+    ],
+    "routes": [
+      {
+        "src": "/(.*)",
+        "dest": "main.py"
+      }
+    ]
+}
