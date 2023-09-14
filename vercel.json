@@ -1,14 +1,26 @@
 {
-    "builds": [
-      {
-        "src": "main.py",
-        "use": "@vercel/python"
-      }
-    ],
-    "routes": [
-      {
-        "src": "/(.*)",
-        "dest": "main.py"
-      }
-    ]
+  "builds": [
+    {
+      "src": "main.py",
+      "use": "@vercel/python"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "main.py"
+    }
+  ],
+  "env": {
+    "PYTHONUNBUFFERED": "true"  
+  },
+  "functions": {
+    "api": {
+      "maxDuration": 10,        
+      "memory": 1024,            
+      "includeFiles": [
+        "una_tourist.sav"        
+      ]
+    }
+  }
 }

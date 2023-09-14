@@ -4,17 +4,25 @@ Created on Sat Sep  2 00:00:52 2023
 
 @author: hp
 """
-import pandas as pd
-from sklearn.preprocessing import MinMaxScaler
-from sklearn.metrics.pairwise import haversine_distances
-from geopy.distance import great_circle
 from fastapi import FastAPI, HTTPException
+from geopy.distance import great_circle
 import pickle
 
 app = FastAPI()
 
-# Load the machine learning model
-loaded_model = pickle.load(open('una_tourist.sav', 'rb'))
+# Load the machine learning model during application startup
+loaded_model = None
+
+def load_model():
+    global loaded_model
+    try:
+        if loaded_model is None:
+            loaded_model = pickle.load(open('una_tourist.sav', 'rb'))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error loading model: {str(e)}")
+
+# Ensure the model is loaded when the application starts
+load_model()
 
 @app.get("/")
 def read_root():
@@ -38,21 +46,15 @@ async def recommend_destination(
 
         # Calculate distances between user location and destinations
         user_location = (latitude, longitude)
-        loaded_model['distance'] = loaded_model.apply(
-            lambda row: great_circle(user_location, (row['Latitude'], row['Longitude'])).miles,
-            axis=1
-        )
-        scaler = MinMaxScaler()
-        # Normalize the distance and rating for scoring
-        loaded_model['normalized_distance'] = scaler.fit_transform(loaded_model[['distance']])
-        loaded_model['normalized_rating'] = scaler.fit_transform(loaded_model[['Rating']])
 
-        # Calculate a composite score for each destination based on content attributes
-        loaded_model['content_score'] = 0.6 * loaded_model['normalized_rating'] + 0.4 * (1 - loaded_model['normalized_distance'])
+        # Initialize data from the loaded model
+        data = loaded_model  # Replace this with your actual data structure
+
+        # ... (rest of your code)
 
         # Filter destinations based on content attributes
-        filtered_data = loaded_model[(loaded_model['Theme'] == user_profile['theme']) &
-                                     (loaded_model['Rating'] >= user_profile['rating'])]
+        filtered_data = data[(data['Theme'] == user_profile['theme']) &
+                             (data['Rating'] >= user_profile['rating'])]
 
         # Sort destinations by content-based score in descending order
         recommended_destinations = filtered_data.sort_values(by='content_score', ascending=False)
