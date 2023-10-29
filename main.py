@@ -1,18 +1,20 @@
 import pandas as pd
 from sklearn.preprocessing import MinMaxScaler
 from geopy.distance import great_circle
-from surprise import Dataset, Reader, SVD
-import pickle
 from fastapi import FastAPI, Query
+import pickle
 
 app = FastAPI()
 
-# Load the dataset (you should adjust the path to your dataset)
-data = pd.read_csv('hpdataset.csv')
+# Lazy load the SVD model
+def lazy_load_svd_model():
+    with open('svd_model.pkl', 'rb') as svd_file:
+        svd = pickle.load(svd_file)
+    return svd
 
-# Load the SVD model from a pickle file
-with open('svd_model.pkl', 'rb') as svd_file:
-    svd = pickle.load(svd_file)
+# Load the dataset lazily
+def lazy_load_dataset():
+    return pd.read_csv('hpdataset.csv')
 
 # Define a route for recommending destinations
 @app.post("/recommend")
@@ -23,6 +25,10 @@ async def recommend_destination(
     latitude: float = Query(..., description="Current latitude"),
     longitude: float = Query(..., description="Current longitude")
 ):
+    # Lazy load the SVD model and dataset
+    svd = lazy_load_svd_model()
+    data = lazy_load_dataset()
+
     # Your user input validation and recommendation logic here
 
     # Sample code for recommendation (replace this with your logic)
