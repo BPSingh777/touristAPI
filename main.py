@@ -1,72 +1,66 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Sat Sep  2 00:00:52 2023
-
-@author: hp
-"""
-from fastapi import FastAPI, HTTPException
+import pandas as pd
+from sklearn.preprocessing import MinMaxScaler
 from geopy.distance import great_circle
+from surprise import Dataset, Reader, SVD
 import pickle
+from fastapi import FastAPI, Query
 
 app = FastAPI()
 
-# Load the machine learning model during application startup
-loaded_model = None
+# Load the dataset (you should adjust the path to your dataset)
+data = pd.read_csv('hpdataset.csv')
 
-def load_model():
-    global loaded_model
-    try:
-        if loaded_model is None:
-            loaded_model = pickle.load(open('una_tourist.sav', 'rb'))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error loading model: {str(e)}")
+# Load the SVD model from a pickle file
+with open('svd_model.pkl', 'rb') as svd_file:
+    svd = pickle.load(svd_file)
 
-# Ensure the model is loaded when the application starts
-load_model()
-
-@app.get("/")
-def read_root():
-    return {"message": "Welcome to the recommendation API!"}
-
+# Define a route for recommending destinations
 @app.post("/recommend")
 async def recommend_destination(
-    theme: str,
-    rating: float,
-    days: int,
-    latitude: float,
-    longitude: float,
+    theme: str = Query(..., description="Preferred theme"),
+    rating: float = Query(..., description="Preferred rating (0-5)"),
+    days: int = Query(..., description="Number of days for travel"),
+    latitude: float = Query(..., description="Current latitude"),
+    longitude: float = Query(..., description="Current longitude")
 ):
-    try:
-        # Create a user profile
-        user_profile = {
-            'theme': theme,
-            'rating': rating,
-            'days': days
-        }
+    # Your user input validation and recommendation logic here
 
-        # Calculate distances between user location and destinations
-        user_location = (latitude, longitude)
+    # Sample code for recommendation (replace this with your logic)
+    user_location = (latitude, longitude)
+    data['distance'] = data.apply(
+        lambda row: great_circle(user_location, (row['Latitude'], row['Longitude'])).miles,
+        axis=1
+    )
 
-        # Initialize data from the loaded model
-        data = loaded_model  # Replace this with your actual data structure
+    # Normalize the distance and rating for scoring
+    scaler = MinMaxScaler()
+    data['normalized_distance'] = scaler.fit_transform(data[['distance']])
+    data['normalized_rating'] = scaler.fit_transform(data[['Rating']])
 
-        # ... (rest of your code)
+    # Add a dummy 'User' column
+    data['User'] = 0
 
-        # Filter destinations based on content attributes
-        filtered_data = data[(data['Theme'] == user_profile['theme']) &
-                             (data['Rating'] >= user_profile['rating'])]
+    # Generate user-based collaborative filtering recommendations
+    recommendations = []
+    for index, row in data.iterrows():
+        prediction = svd.predict(0, index)  # User ID is assumed to be 0
+        recommendations.append({
+            'Place': row['Place Name'],
+            'Theme': row['Theme'],
+            'Rating': row['Rating']
+        })
 
-        # Sort destinations by content-based score in descending order
-        recommended_destinations = filtered_data.sort_values(by='content_score', ascending=False)
+    # Sort destinations by the combined score in descending order
+    recommendations = sorted(recommendations, key=lambda x: x['Rating'], reverse=True)
 
-        # Extract and return the top recommendations
-        recommendations = recommended_destinations[['Places', 'Theme', 'Rating']].to_dict(orient='records')
+    # Return only the top 10 recommended destinations with numbering
+    top_10_destinations = [{"Order": i + 1, **dest} for i, dest in enumerate(recommendations[:10])]
 
-        return {"recommendations": recommendations}
+    # Wrap the list with a title
+    output = {"Recommended Destinations": top_10_destinations}
 
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return output
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="127.0.0.1", port=8000)
