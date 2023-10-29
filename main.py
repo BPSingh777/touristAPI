@@ -25,7 +25,7 @@ async def recommend_destination(
 ):
     # Your user input validation and recommendation logic here
 
-    # Sample code for recommendation (replace this with your logic)
+    # Sample code for recommendation
     user_location = (latitude, longitude)
     data['distance'] = data.apply(
         lambda row: great_circle(user_location, (row['Latitude'], row['Longitude'])).miles,
@@ -35,7 +35,7 @@ async def recommend_destination(
     # Normalize the distance and rating for scoring
     scaler = MinMaxScaler()
     data['normalized_distance'] = scaler.fit_transform(data[['distance']])
-    data['normalized_rating'] = scaler.fit_transform(data[['Rating']])
+    data['normalized_rating'] = scaler.fit_transform(data[['Rating'])
 
     # Add a dummy 'User' column
     data['User'] = 0
